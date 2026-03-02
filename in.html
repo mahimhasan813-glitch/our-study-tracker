@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>১৪ দিনের স্টাডি চ্যালেঞ্জ ট্র্যাকার (v2.0)</title>
+<style>
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --danger-color: #e74c3c;
+        --bg-color: #f4f7f6;
+        --text-color: #333;
+    }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        padding-bottom: 120px; /* Space for fixed bottom panel */
+    }
+
+    h1, h3 { text-align: center; color: var(--secondary-color); margin-top: 10px;}
+
+    /* Table Styling */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        border-radius: 12px;
+        background: white;
+        margin-top: 25px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 800px;
+    }
+
+    th, td {
+        border: 1px solid #eee;
+        padding: 15px;
+        text-align: left;
+        vertical-align: top;
+    }
+
+    th {
+        background-color: var(--primary-color);
+        color: white;
+        text-transform: uppercase;
+        font-size: 0.9rem;
+        letter-spacing: 0.05em;
+        position: sticky;
+        top: 0;
+    }
+
+    tr:nth-child(even) { background-color: #fcfcfc; }
+    tr:hover { background-color: #f1f8ff; }
+
+    /* Chapter Cell Styling */
+    .chapter-cell {
+        cursor: pointer;
+        font-weight: 500;
+        color: #555;
+        transition: all 0.2s;
+        position: relative;
+    }
+    .chapter-cell:hover:not(.done-cell) {
+        background-color: #e3f2fd;
+        color: var(--primary-color);
+    }
+    .no-task { color: #aaa; cursor: default; }
+
+    /* Time Display inside cell */
+    .cell-time {
+        font-size: 0.75rem;
+        color: var(--success-color);
+        display: block;
+        margin-top: 5px;
+        font-weight: bold;
+    }
+
+    /* Study Hours Column */
+    .study-hours-cell {
+        font-weight: bold;
+        color: var(--secondary-color);
+        text-align: center;
+        width: 100px;
+    }
+
+    /* Completed Checkbox Column */
+    .completed-col {
+        text-align: center;
+        cursor: pointer;
+        width: 80px;
+        font-size: 1.4rem;
+        color: #ccc;
+        transition: color 0.3s;
+    }
+    
+    /* Dynamic States (Completed) */
+    .done-cell {
+        background-color: #d4edda !important;
+        color: #155724 !important;
+        border-color: #c3e6cb;
+    }
+    .done-cell .cell-time { color: #155724; }
+
+    .row-complete {
+        background-color: #c3e6cb !important;
+        border-color: #b1dfbb;
+    }
+    .row-complete .completed-col { color: var(--success-color); }
+    .row-complete td { color: #155724; }
+
+    /* Modal (Stopwatch UI) */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 2000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.6);
+        overflow: auto;
+        backdrop-filter: blur(3px);
+    }
+    .modal-content {
+        background-color: #fff;
+        margin: 10% auto;
+        padding: 30px;
+        border-radius: 16px;
+        width: 90%;
+        max-width: 450px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        animation: slideIn 0.3s ease-out;
+        box-sizing: border-box;
+    }
+    @keyframes slideIn { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    
+    .modal-content h2 { color: var(--primary-color); margin-top: 0; font-size: 1.6rem;}
+    .timer-display {
+        font-size: 3.5rem;
+        font-weight: bold;
+        color: #333;
+        font-family: 'Courier New', Courier, monospace;
+        margin: 25px 0;
+        background: #f1f1f1;
+        border-radius: 10px;
+        padding: 15px;
+        letter-spacing: 2px;
+    }
+    
+    .modal-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-top: 15px;
+    }
+    .modal-buttons button {
+        padding: 12px 20px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    #startBtn { background-color: var(--success-color); color: white; }
+    #startBtn.running { background-color: var(--warning-color); } /* For Pause state */
+    
+    #resetBtn { background-color: #95a5a6; color: white; }
+    
+    #saveBtn {
+        background-color: var(--primary-color);
+        color: white;
+        grid-column: span 2; /* Full width */
+        margin-top: 10px;
+    }
+    
+    #closeBtn {
+        background-color: var(--danger-color);
+        color: white;
+        margin-top: 20px;
+        width: 100%;
+        padding: 10px;
+        font-weight: bold;
+    }
+
+    /* Grand Total Section (Fixed at Bottom) */
+    .total-hours-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background-color: white;
+        padding: 15px 20px;
+        box-shadow: 0 -5px 15px rgba(0,0,0,0.08);
+        z-index: 1000;
+        box-sizing: border-box;
+        border-radius: 15px 15px 0 0;
+    }
+    .total-hours-panel h3 { margin: 0 0 15px 0; font-size: 1.2rem; text-align: left; }
+    
+    .total-hours-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+    }
+    .subject-total {
+        padding: 15px;
+        background: #fafafa;
+        border: 1px solid #eee;
+        border-radius: 10px;
+        text-align: center;
+        transition: transform 0.2s;
+    }
+    .subject-total:hover { transform: translateY(-3px); border-color: var(--primary-color); }
+    .subject-total h4 { margin: 0 0 8px 0; color: #7f8c8d; font-size: 1rem; font-weight: 500;}
+    .subject-total .total-val { font-size: 1.5rem; color: var(--primary-color); font-weight: bold; font-family: 'Courier New', monospace;}
+
+    /* Context Menu Bonus Hint */
+    .hint-bar {
+        background-color: var(--secondary-color);
+        color: white;
+        text-align: center;
+        padding: 5px;
+        font-size: 0.8rem;
+        margin-bottom: 10px;
+        border-radius: 5px;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 900px) {
+        table { font-size: 14px; }
+        th, td { padding: 10px; }
+        .timer-display { font-size: 2.8rem; }
+        .total-hours-grid { grid-template-columns: repeat(2, 1fr); }
+        .subject-total { padding: 10px; }
+    }
+</style>
+</head>
+<body>
+
+    <h1>১ ৪ দিনের স্টাডি চ্যালেঞ্জ ট্র্যাকার (v2.0)</h1>
+    <h3>৩ মার্চ ২০২৬ | ১৬ মার্চ ২০২৬</h3>
+    
+    <div class="hint-bar">মোবাইলে কোনো চ্যাপ্টার 'Done' মার্ক করতে চাইলে তার ওপর লং-প্রেস করুন</div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>দিন</th>
+                    <th>পদার্থবিজ্ঞান</th>
+                    <th>রসায়ন</th>
+                    <th>উচ্চতর গণিত</th>
+                    <th>জীববিজ্ঞান</th>
+                    <th class="study-hours-cell">স্টাডি আওয়ার্স<br>(সেকেন্ড)</th>
+                    <th class="completed-col">সম্পন্ন?</th>
+                </tr>
+            </thead>
+            <tbody id="routineBody">
+                <tr id="row-D01"><td class="day-cell"><strong>D01</strong>(৩ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p1_ch2">1st: Ch 2<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Chemistry" data-ch-id="c1_ch2">1st: Ch 2<span class="cell-time"></span></td><td class="chapter-cell" data-subject="HigherMath" data-ch-id="m1_ch1">1st: Ch 1<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Biology" data-ch-id="b_bot1">Botany: Ch 1<span class="cell-time"></span></td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D01')">☐</td></tr>
+                <tr id="row-D02"><td class="day-cell"><strong>D02</strong>(৪ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p1_ch4">1st: Ch 4<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Chemistry" data-ch-id="c1_ch3p1">1st: Ch 3 (P1)<span class="cell-time"></span></td><td class="chapter-cell" data-subject="HigherMath" data-ch-id="m1_ch3">1st: Ch 3<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Biology" data-ch-id="b_bot2">Botany: Ch 2<span class="cell-time"></span></td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D02')">☐</td></tr>
+                <tr id="row-D03"><td class="day-cell"><strong>D03</strong>(৫ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p2_ch1">2nd: Ch 1<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Chemistry" data-ch-id="c2_ch1">2nd: Ch 1<span class="cell-time"></span></td><td class="chapter-cell" data-subject="HigherMath" data-ch-id="m2_ch3">2nd: Ch 3<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Biology" data-ch-id="b_zoo1">Zoology: Ch 1<span class="cell-time"></span></td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D03')">☐</td></tr>
+                <tr id="row-D04"><td class="day-cell"><strong>D04</strong>(৬ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p2_ch2">2nd: Ch 2<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Chemistry" data-ch-id="c2_ch4">2nd: Ch 4<span class="cell-time"></span></td><td class="chapter-cell" data-subject="HigherMath" data-ch-id="m2_ch4">2nd: Ch 4<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Biology" data-ch-id="b_zoo3">Zoology: Ch 3<span class="cell-time"></span></td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D04')">☐</td></tr>
+                <tr id="row-D05"><td class="day-cell"><strong>D05</strong>(৭ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p1_ch5">1st: Ch 5<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Chemistry" data-ch-id="c1_ch3p2">1st: Ch 3 (P2)<span class="cell-time"></span></td><td class="chapter-cell" data-subject="HigherMath" data-ch-id="m1_ch4">1st: Ch 4<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Biology" data-ch-id="b_bot7">Botany: Ch 7<span class="cell-time"></span></td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D05')">☐</td></tr>
+                <tr id="row-D06"><td class="day-cell"><strong>D06</strong>(৮ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p1_ch6">1st: Ch 6<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Chemistry" data-ch-id="c1_ch4">1st: Ch 4<span class="cell-time"></span></td><td class="chapter-cell" data-subject="HigherMath" data-ch-id="m1_ch7">1st: Ch 7<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Biology" data-ch-id="b_bot4">Botany: Ch 4<span class="cell-time"></span></td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D06')">☐</td></tr>
+                <tr id="row-D07"><td class="day-cell"><strong>D07</strong>(৯ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p2_ch3">2nd: Ch 3<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Chemistry" data-ch-id="c2_ch3p1">2nd: Ch 3 (P1)<span class="cell-time"></span></td><td class="chapter-cell" data-subject="HigherMath" data-ch-id="m2_ch6">2nd: Ch 6<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Biology" data-ch-id="b_zoo2">Zoology: Ch 2<span class="cell-time"></span></td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D07')">☐</td></tr>
+                <tr id="row-D08"><td class="day-cell"><strong>D08</strong>(১০ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p2_ch7">2nd: Ch 7<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Chemistry" data-ch-id="c2_ch3p2">2nd: Ch 3 (P2)<span class="cell-time"></span></td><td class="chapter-cell" data-subject="HigherMath" data-ch-id="m2_ch7">2nd: Ch 7<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Biology" data-ch-id="b_zoo4">Zoology: Ch 4<span class="cell-time"></span></td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D08')">☐</td></tr>
+                <tr id="row-D09"><td class="day-cell"><strong>D09</strong>(১১ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p1_ch7">1st: Ch 7<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Chemistry" data-ch-id="c1_ch5">1st: Ch 5<span class="cell-time"></span></td><td class="chapter-cell" data-subject="HigherMath" data-ch-id="m1_ch9p1">1st: Ch 9 (P1)<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Biology" data-ch-id="b_bot8">Botany: Ch 8<span class="cell-time"></span></td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D09')">☐</td></tr>
+                <tr id="row-D10"><td class="day-cell"><strong>D10</strong>(১২ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p1_ch8">1st: Ch 8<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Chemistry" data-ch-id="c2_ch2p1">2nd: Ch 2 (P1)<span class="cell-time"></span></td><td class="chapter-cell" data-subject="HigherMath" data-ch-id="m1_ch9p2">1st: Ch 9 (P2)<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Biology" data-ch-id="b_bot9">Botany: Ch 9<span class="cell-time"></span></td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D10')">☐</td></tr>
+                <tr id="row-D11"><td class="day-cell"><strong>D11</strong>(১৩ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p2_ch8">2nd: Ch 8<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Chemistry" data-ch-id="c2_ch2p2">2nd: Ch 2 (P2)<span class="cell-time"></span></td><td class="chapter-cell" data-subject="HigherMath" data-ch-id="m2_ch8">2nd: Ch 8<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Biology" data-ch-id="b_zoo5">Zoology: Ch 5<span class="cell-time"></span></td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D11')">☐</td></tr>
+                <tr id="row-D12"><td class="day-cell"><strong>D12</strong>(১৪ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p1_ch10">1st: Ch 10<span class="cell-time"></span></td><td class="chapter-cell review-cell" data-subject="Chemistry" data-ch-id="c_review1">Review<span class="cell-time"></span></td><td class="chapter-cell" data-subject="HigherMath" data-ch-id="m1_ch10p1">1st: Ch 10 (P1)<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Biology" data-ch-id="b_bot11">Botany: Ch 11<span class="cell-time"></span></td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D12')">☐</td></tr>
+                <tr id="row-D13"><td class="day-cell"><strong>D13</strong>(১৫ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p2_ch10">2nd: Ch 10<span class="cell-time"></span></td><td class="chapter-cell review-cell" data-subject="Chemistry" data-ch-id="c_review2">Review<span class="cell-time"></span></td><td class="chapter-cell" data-subject="HigherMath" data-ch-id="m1_ch10p2">1st: Ch 10 (P2)<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Biology" data-ch-id="b_zoo11">Zoology: Ch 11<span class="cell-time"></span></td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D13')">☐</td></tr>
+                <tr id="row-D14"><td class="day-cell"><strong>D14</strong>(১৬ মা.)</td><td class="chapter-cell" data-subject="Physics" data-ch-id="p2_ch9">2nd: Ch 9<span class="cell-time"></span></td><td class="chapter-cell" data-subject="Chemistry" data-ch-id="c2_ch2last">2nd: Ch 2 (Last P)<span class="cell-time"></span></td><td class="no-task">——</td><td class="no-task">——</td><td class="study-hours-cell">0</td><td class="completed-col" onclick="toggleRowComplete('row-D14')">☐</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="total-hours-panel">
+        <h3>সার্বিকভাবে কত মিনিট পড়লাম</h3>
+        <div class="total-hours-grid">
+            <div class="subject-total"><h4>পদার্থবিজ্ঞান</h4><div class="total-val" id="gt-Physics">00:00</div></div>
+            <div class="subject-total"><h4>রসায়ন</h4><div class="total-val" id="gt-Chemistry">00:00</div></div>
+            <div class="subject-total"><h4>উচ্চতর গণিত</h4><div class="total-val" id="gt-HigherMath">00:00</div></div>
+            <div class="subject-total"><h4>जीवविज्ञान</h4><div class="total-val" id="gt-Biology">00:00</div></div>
+        </div>
+    </div>
+
+    <div id="stopwatchModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalChapterName">পদার্থবিজ্ঞান: Ch 2</h2>
+            <div class="timer-display" id="timerDisplay">00:00:00</div>
+            <div class="modal-buttons">
+                <button id="startBtn" onclick="toggleTimer()">Start</button>
+                <button id="resetBtn" onclick="resetTimer()">Reset</button>
+                <button id="saveBtn" onclick="saveStudiedTime()">Save & Done</button>
+            </div>
+            <button id="closeBtn" onclick="closeModal()">বাতিল</button>
+        </div>
+    </div>
+
+<script>
+    // --- Application State ---
+    const STORAGE_KEY = 'hsc_14day_tracker_v2';
+    
+    // Default Empty Data Structure
+    let appData = {
+        chapters: {}, // e.g., { p1_ch2: { seconds: 3600, done: true } }
+        rows: {}     // e.g., { 'row-D01': true }
+    };
+
+    let sessionState = {
+        seconds: 0,
+        intervalId: null,
+        isPaused: true,
+        activeCell: null // The cell currently being timed
+    };
+
+    // --- DOM Elements ---
+    const modal = document.getElementById("stopwatchModal");
+    const modalTitle = document.getElementById("modalChapterName");
+    const timerDisplay = document.getElementById("timerDisplay");
+    const startBtn = document.getElementById("startBtn");
+
+    // --- Initialize: Load and Render Data ---
+    function init() {
+        // Load from LocalStorage
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+            appData = JSON.parse(savedData);
+        }
+        
+        // Initial UI Render
+        renderAllData();
+    }
+
+    // --- Save State to LocalStorage ---
+    function saveData() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    }
+
+    // --- Render Entire UI based on Data ---
+    function renderAllData() {
+        // 1. Render Chapters and Individual Times
+        document.querySelectorAll(".chapter-cell").forEach(cell => {
+            const chId = cell.getAttribute("data-ch-id");
+            const chData = appData.chapters[chId];
+            const timeSpan = cell.querySelector('.cell-time');
+
+            if (chData) {
+                // Show studied time if > 0
+                if (chData.seconds > 0) {
+                    timeSpan.innerText = formatTimeHHMMSS(chData.seconds);
+                }
+                // Mark as green if done
+                if (chData.done) {
+                    cell.classList.add('done-cell');
+                }
+            }
+        });
+
+        // 2. Render Row (Daily) Completion
+        for (const rowId in appData.rows) {
+            const row = document.getElementById(rowId);
+            if (row && appData.rows[rowId]) {
+                row.classList.add('row-complete');
+                row.querySelector('.completed-col').innerText = "✔";
+            }
+        }
+        
+        // 3. Update all Time Summaries (Row and Grand Totals)
+        updateAllTimeSummaries();
+    }
+
+    // --- Calculate and Update Row and Grand Totals ---
+    function updateAllTimeSummaries() {
+        // Grand Totals storage (seconds)
+        const grandTotals = { Physics: 0, Chemistry: 0, HigherMath: 0, Biology: 0 };
+        
+        // Loop through each Row (Day)
+        document.querySelectorAll("#routineBody tr").forEach(row => {
+            let rowSeconds = 0;
+            
+            // Loop through chapter cells in this row
+            row.querySelectorAll(".chapter-cell").forEach(cell => {
+                const chId = cell.getAttribute("data-ch-id");
+                const subject = cell.getAttribute("data-subject");
+                const seconds = appData.chapters[chId]?.seconds || 0;
+                
+                rowSeconds += seconds;
+                grandTotals[subject] += seconds;
+            });
+            
+            // Update Row Total (seconds)
+            const rowTotalCell = row.querySelector('.study-hours-cell');
+            if(rowTotalCell) {
+                rowTotalCell.innerText = rowSeconds; // Displaying seconds as requested
+            }
+        });
+
+        // Update Grand Totals Panel (Minutes:Seconds for readability)
+        for (const subject in grandTotals) {
+            const gtCell = document.getElementById(`gt-${subject}`);
+            if (gtCell) {
+                gtCell.innerText = formatTimeMMSS(grandTotals[subject]);
+            }
+        }
+    }
+
+    // --- Timer UI Interactions ---
+    
+    // Open Modal on Chapter Click
+    document.querySelectorAll(".chapter-cell").forEach(cell => {
+        cell.addEventListener("click", () => {
+            const subjectName = cell.getAttribute("data-subject");
+            const chapterTitle = cell.childNodes[0].textContent.trim(); // Get main text, skip span
+            modalTitle.innerText = `${subjectName}: ${chapterTitle}`;
+            sessionState.activeCell = cell;
+            resetTimer(); // Reset previous modal state
+            modal.style.display = "block";
+        });
+        
+        // Bonus: Bonus: Use Long-Press (Touch) to toggle 'Done' without timer
+        let pressTimer;
+        cell.addEventListener('touchstart', () => pressTimer = setTimeout(() => toggleManualDone(cell), 700));
+        cell.addEventListener('touchend', () => clearTimeout(pressTimer));
+        
+        // Also keep Right-Click for desktop
+        cell.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            toggleManualDone(cell);
+        });
+    });
+
+    // Timer Logic
+    function toggleTimer() {
+        if (sessionState.isPaused) {
+            // Start
+            startBtn.innerText = "Pause";
+            startBtn.classList.add('running');
+            sessionState.intervalId = setInterval(() => {
+                sessionState.seconds++;
+                timerDisplay.innerText = formatTimeHHMMSS(sessionState.seconds);
+            }, 1000);
+            sessionState.isPaused = false;
+        } else {
+            // Pause
+            startBtn.innerText = "Resume";
+            startBtn.classList.remove('running');
+            clearInterval(sessionState.intervalId);
+            sessionState.isPaused = true;
+        }
+    }
+
+    function resetTimer() {
+        clearInterval(sessionState.intervalId);
+        sessionState.seconds = 0;
+        sessionState.isPaused = true;
+        timerDisplay.innerText = "00:00:00";
+        startBtn.innerText = "Start";
+        startBtn.classList.remove('running');
+    }
+
+    // Save Time and Update UI
+    function saveStudiedTime() {
+        const chId = sessionState.activeCell.getAttribute("data-ch-id");
+        
+        if (!appData.chapters[chId]) appData.chapters[chId] = { seconds: 0, done: false };
+        
+        // Add current session time to existing chapter time
+        appData.chapters[chId].seconds += sessionState.seconds;
+        appData.chapters[chId].done = true; // Mark as done when saved
+
+        // Visual update in cell
+        const timeSpan = sessionState.activeCell.querySelector('.cell-time');
+        timeSpan.innerText = formatTimeHHMMSS(appData.chapters[chId].seconds);
+        sessionState.activeCell.classList.add('done-cell');
+
+        // Save, Close, and Refresh Totals
+        saveData();
+        closeModal();
+        updateAllTimeSummaries(); // Refresh totals immediately
+    }
+
+    // Manual Done (Right-Click/Long-Press)
+    function toggleManualDone(cell) {
+        const chId = cell.getAttribute("data-ch-id");
+        if (!appData.chapters[chId]) appData.chapters[chId] = { seconds: 0, done: false };
+        
+        appData.chapters[chId].done = !appData.chapters[chId].done;
+        
+        if (appData.chapters[chId].done) {
+            cell.classList.add('done-cell');
+        } else {
+            cell.classList.remove('done-cell');
+        }
+        saveData();
+    }
+
+    // Daily Complete Checkbox
+    function toggleRowComplete(rowId) {
+        const row = document.getElementById(rowId);
+        const cell = row.querySelector('.completed-col');
+        
+        if (!appData.rows[rowId]) appData.rows[rowId] = false;
+        
+        appData.rows[rowId] = !appData.rows[rowId];
+        
+        if (appData.rows[rowId]) {
+            row.classList.add('row-complete');
+            cell.innerText = "✔";
+        } else {
+            row.classList.remove('row-complete');
+            cell.innerText = "☐";
+        }
+        saveData();
+    }
+
+    // --- Helpers: Formatting Time ---
+    
+    // HH:MM:SS for timer and cell displays
+    function formatTimeHHMMSS(totalSeconds) {
+        const hrs = Math.floor(totalSeconds / 3600);
+        const mins = Math.floor((totalSeconds % 3600) / 60);
+        const secs = totalSeconds % 60;
+        return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    // MM:SS for grand totals panel (better readability for shorter sessions)
+    function formatTimeMMSS(totalSeconds) {
+        const mins = Math.floor(totalSeconds / 60);
+        const secs = totalSeconds % 60;
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    // --- Modal Management ---
+    function closeModal() {
+        modal.style.display = "none";
+        resetTimer();
+    }
+
+    // Run Initialization
+    init();
+
+</script>
+</body>
+</html>
